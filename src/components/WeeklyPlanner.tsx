@@ -26,7 +26,7 @@ export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
         body: JSON.stringify({ ageGroup, language, diet })
       });
       if (!response.ok) {
-        if (response.status === 404) throw new Error('API server not found! If deployed to Netlify without backend functions, the AI engine won\'t work.');
+        if (response.status === 404) throw new Error('API server not found! Please ensure your backend functions are deployed and GEMINI_API_KEY is configured in your hosting environment.');
         let errMessage = 'Failed to generate weekly chart.';
         try { const errData = await response.json(); if(errData.error) errMessage = errData.error; } catch(e) {}
         throw new Error(errMessage);

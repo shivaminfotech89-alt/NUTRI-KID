@@ -59,7 +59,7 @@ export default function App() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('API server not found! If you deployed this to Netlify without setting up backend functions, the AI engine won\'t work. Please try deploying on a full-stack platform like Cloud Run.');
+          throw new Error('API server not found! Please ensure your backend functions are deployed and GEMINI_API_KEY is configured in your hosting environment.');
         }
         let errMessage = 'Our baking ovens got a bit too hot! Let\'s try mixing ingredients again.';
         try {
