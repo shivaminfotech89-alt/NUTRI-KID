@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
-import { Sparkles, Utensils, BookOpen, UserCheck, ShieldAlert, Award, ArrowLeft, Search, HelpCircle, Activity, ChevronRight } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Sparkles, Utensils, BookOpen, UserCheck, ShieldAlert, Award, ArrowLeft, Search, HelpCircle, Activity, ChevronRight, Upload, PlayCircle, Globe, Calendar as CalendarIcon } from 'lucide-react';
 import IngredientSelector from './components/IngredientSelector';
 import HarvardPlate from './components/HarvardPlate';
+import WeeklyPlanner from './components/WeeklyPlanner';
 import { Recipe } from './types';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'pantry' | 'weekly'>('pantry');
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>(['Broccoli', 'Carrots', 'Brown Rice', 'Chicken Breast', 'Eggs', 'Olive Oil', 'Fresh Water']);
-  const [customInputText, setCustomInputText] = useState<string>('');
+  const [language, setLanguage] = useState<string>('English');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [moveChallengeDone, setMoveChallengeDone] = useState<boolean>(false);
   const [showMoveConfetti, setShowMoveConfetti] = useState<boolean>(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Playful cooking state tips to rotate through during generation
   const [loadingTipIndex, setLoadingTipIndex] = useState(0);
@@ -42,13 +46,14 @@ export default function App() {
     setCompletedTasks([]);
     setMoveChallengeDone(false);
     setShowMoveConfetti(false);
+    setUploadedPhotos([]);
 
     try {
       const ingredientString = selectedIngredients.join(', ');
       const response = await fetch('/api/recipe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients: ingredientString })
+        body: JSON.stringify({ ingredients: ingredientString, language })
       });
 
       if (!response.ok) {
@@ -85,6 +90,21 @@ export default function App() {
     }, 4000);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result && typeof e.target.result === 'string') {
+          setUploadedPhotos(prev => [...prev, e.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#FFFDF0] font-sans pb-16 transition-all duration-300">
       {/* Visual Accent top ribbon */}
@@ -109,15 +129,49 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1 text-center sm:text-right">
+          <div className="flex flex-col items-center sm:items-end gap-3 text-center sm:text-right">
             <div className="bg-[#4ECDC4] px-5 py-2.5 rounded-full text-white font-extrabold text-xs sm:text-sm shadow-xs uppercase tracking-wider">
               🍏 Harvard Kid's Plate Authorized
             </div>
-            <div className="text-[10px] text-slate-400 font-semibold italic">
-              Empowering little junior chefs with clinical cooking joy!
+            
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200 shadow-sm">
+              <Globe className="w-4 h-4 text-slate-500" />
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="bg-transparent text-sm font-bold text-slate-600 outline-hidden cursor-pointer"
+              >
+                {["English", "Español", "Français", "Deutsch", "Italiano", "Português", "Hindi"].map(lang => (
+                  <option key={lang} value={lang}>{lang}</option>
+                ))}
+              </select>
             </div>
           </div>
         </header>
+
+        {/* Navigation Tabs */}
+        {!recipe && (
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex bg-white p-1 rounded-2xl border-2 border-slate-200 shadow-sm">
+              <button
+                onClick={() => setActiveTab('pantry')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 transition-all ${
+                  activeTab === 'pantry' ? 'bg-[#FF6B6B] text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Utensils className="w-5 h-5" /> Pantry Chef
+              </button>
+              <button
+                onClick={() => setActiveTab('weekly')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 transition-all ${
+                  activeTab === 'weekly' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <CalendarIcon className="w-5 h-5" /> Weekly Planner
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Error Notification Banner */}
         {error && (
@@ -138,9 +192,11 @@ export default function App() {
 
         {/* Main Cooking Control Arena */}
         {!recipe ? (
-          /* View A: Ingredient Pick & Launch Fridge */
+          /* View A: Selector Views */
           <div className="space-y-6">
-            {isLoading ? (
+            {activeTab === 'weekly' ? (
+              <WeeklyPlanner language={language} />
+            ) : isLoading ? (
               /* Loading State Screen with rotating tips */
               <div className="bg-white rounded-3xl p-12 text-center border-4 border-[#FF6B6B] shadow-xl max-w-2xl mx-auto my-12 animate-pulse">
                 <div className="text-6xl mb-6">🌋</div>
@@ -162,8 +218,6 @@ export default function App() {
               <IngredientSelector
                 selectedItems={selectedIngredients}
                 onChangeSelected={setSelectedIngredients}
-                customIngredients={customInputText}
-                onChangeCustom={setCustomInputText}
                 onGenerate={handleGenerateRecipe}
                 isLoading={isLoading}
               />
@@ -210,6 +264,36 @@ export default function App() {
                     Chef Nutri-Kid's clinical design ensures plant oils provide essential brain fat (Omega-3/6) of the plate while grains keep the mitochondria engines charging!
                   </p>
                 </div>
+
+                {/* Nutrition Breakdown */}
+                {recipe.nutrition && (
+                   <div className="bg-white p-5 rounded-3xl border-2 border-slate-200 shadow-sm">
+                      <h4 className="text-slate-800 font-black text-sm uppercase mb-4 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-sky-500" /> Nutritional Power (Kid's Portion)
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-sky-50 p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                           <span className="text-2xl font-black text-sky-600">{recipe.nutrition.calories}</span>
+                           <span className="text-[10px] font-bold text-sky-800 uppercase">Calories 🔥</span>
+                        </div>
+                        <div className="bg-rose-50 p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                           <span className="text-lg font-black text-rose-600">{recipe.nutrition.protein}</span>
+                           <span className="text-[10px] font-bold text-rose-800 uppercase">Protein 💪</span>
+                        </div>
+                        <div className="bg-amber-50 p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                           <span className="text-lg font-black text-amber-600">{recipe.nutrition.carbs}</span>
+                           <span className="text-[10px] font-bold text-amber-800 uppercase">Carbs ⚡</span>
+                        </div>
+                        <div className="bg-emerald-50 p-3 rounded-2xl flex flex-col items-center justify-center text-center">
+                           <span className="text-lg font-black text-emerald-600">{recipe.nutrition.fiber}</span>
+                           <span className="text-[10px] font-bold text-emerald-800 uppercase">Fiber 🌿</span>
+                        </div>
+                        <div className="col-span-2 bg-yellow-50 p-3 rounded-2xl text-center flex items-center justify-center gap-2">
+                           <span className="text-xs font-black text-yellow-800">Key Vitamins: 🌟 {recipe.nutrition.keyVitamins}</span>
+                        </div>
+                      </div>
+                   </div>
+                )}
               </div>
 
               {/* Right Side: 7-Col Instructions, Tasks, Move Challenge */}
@@ -277,6 +361,48 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Upload Photos Section */}
+                <div className="bg-white rounded-3xl p-6 border-2 border-indigo-100 shadow-sm">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                    <h4 className="text-indigo-800 font-black text-sm uppercase flex items-center gap-2">
+                      <Upload className="w-5 h-5 text-indigo-500" /> Share Your Masterpiece! 📸
+                    </h4>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-colors border border-indigo-200 shadow-sm"
+                    >
+                      Upload Photo
+                    </button>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple
+                      className="hidden" 
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                    />
+                  </div>
+                  {uploadedPhotos.length > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      {uploadedPhotos.map((photo, i) => (
+                        <div key={i} className="aspect-square rounded-2xl overflow-hidden border-2 border-indigo-200 shadow-sm group relative">
+                          <img src={photo} alt="Uploaded meal" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                          <button 
+                            onClick={() => setUploadedPhotos(prev => prev.filter((_, index) => index !== i))}
+                            className="absolute top-1 right-1 bg-white/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                           <Trash2 className="w-3 h-3 text-rose-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-indigo-200 rounded-2xl p-6 text-center bg-indigo-50/50">
+                       <p className="text-indigo-400 font-medium text-xs sm:text-sm">No photos yet! Upload your plate here when finished so we can celebrate! 🎉</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Row Grid: Move Challenge & Scientific Fact */}
@@ -347,22 +473,28 @@ export default function App() {
             </div>
 
             {/* Bottom Navigation & Youtube assistant */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📺</span>
-                <p className="text-xs sm:text-sm font-extrabold text-slate-500 uppercase tracking-wide">
-                  Recommended Youtube Search: 
-                  <span id="youtube-search-query" className="text-[#FF6B6B] block sm:inline sm:ml-1 font-mono font-bold text-xs bg-slate-50 px-2 py-1 rounded-md max-w-full truncate">
-                    "{recipe.tutorialQuery}"
-                  </span>
-                </p>
+            <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 mt-6 text-white shadow-xl flex flex-col lg:flex-row items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                 <div className="bg-red-500 rounded-full p-3 shadow-lg shrink-0">
+                   <PlayCircle className="w-8 h-8 text-white" />
+                 </div>
+                 <div className="text-center sm:text-left">
+                    <h4 className="font-black text-lg text-white flex items-center justify-center sm:justify-start gap-2">Watch a Video Guide! 📺</h4>
+                    <p className="text-slate-400 text-sm mt-1 mb-3">Check out this search to see parents making something similar.</p>
+                    <div className="bg-slate-800 p-3 rounded-xl border border-slate-700 inline-flex flex-col sm:flex-row items-center gap-3 w-full">
+                       <code className="text-yellow-400 font-mono font-bold text-xs select-all text-center sm:text-left break-all">"{recipe.tutorialQuery}"</code>
+                       <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(recipe.tutorialQuery)}`} target="_blank" rel="noopener noreferrer" className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-xs font-bold rounded-lg transition-colors shrink-0 whitespace-nowrap">
+                         Search YouTube
+                       </a>
+                    </div>
+                 </div>
               </div>
 
               <button
                 onClick={() => setRecipe(null)}
-                className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md tracking-wider transition-all"
+                className="w-full lg:w-auto px-8 py-4 bg-white hover:bg-slate-100 text-slate-900 font-black text-sm rounded-xl shadow-md transition-all shrink-0"
               >
-                🌿 Cook Another Dish
+                🌿 Return to Pantry
               </button>
             </div>
 

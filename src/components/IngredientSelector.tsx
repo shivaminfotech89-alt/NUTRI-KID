@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { PRESET_INGREDIENTS, FoodItem } from '../types';
-import { Plus, Trash2, ShoppingBasket, Search, Sparkles, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { PRESET_INGREDIENTS, FoodItem, COMMON_INGREDIENTS_DB } from '../types';
+import { Plus, Trash2, ShoppingBasket, Search, Sparkles, RefreshCw, Globe } from 'lucide-react';
 
 interface IngredientSelectorProps {
   selectedItems: string[];
   onChangeSelected: (items: string[]) => void;
-  customIngredients: string;
-  onChangeCustom: (text: string) => void;
   onGenerate: () => void;
   isLoading: boolean;
 }
@@ -14,12 +12,12 @@ interface IngredientSelectorProps {
 export default function IngredientSelector({
   selectedItems,
   onChangeSelected,
-  customIngredients,
-  onChangeCustom,
   onGenerate,
   isLoading
 }: IngredientSelectorProps) {
   const [customInput, setCustomInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Group presets
   const categories = {
@@ -49,6 +47,22 @@ export default function IngredientSelector({
     }
   };
 
+  const LANGUAGES = ["English", "Español", "Français", "Deutsch", "Italiano", "Português", "Hindi"];
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredSuggestions = COMMON_INGREDIENTS_DB.filter(
+    item => item.toLowerCase().includes(customInput.toLowerCase()) && !selectedItems.includes(item)
+  ).slice(0, 5);
+
   const handleToggleItem = (name: string) => {
     if (selectedItems.includes(name)) {
       onChangeSelected(selectedItems.filter(item => item !== name));
@@ -62,22 +76,29 @@ export default function IngredientSelector({
     const clean = customInput.trim();
     if (!clean) return;
 
-    // Check if food already in there
     if (!selectedItems.includes(clean)) {
       onChangeSelected([...selectedItems, clean]);
     }
     setCustomInput('');
+    setShowSuggestions(false);
+  };
+
+  const handleSelectSuggestion = (item: string) => {
+    if (!selectedItems.includes(item)) {
+      onChangeSelected([...selectedItems, item]);
+    }
+    setCustomInput('');
+    setShowSuggestions(false);
   };
 
   const handleEmptyFridge = () => {
-    // Fills kitchen basket with random wholesome staple items
     const staples = ['Broccoli', 'Carrots', 'Brown Rice', 'Chicken Breast', 'Eggs', 'Olive Oil', 'Fresh Water'];
     onChangeSelected(staples);
   };
 
   const handleClearAll = () => {
     onChangeSelected([]);
-    onChangeCustom('');
+    setCustomInput('');
   };
 
   return (
@@ -88,7 +109,7 @@ export default function IngredientSelector({
             <span role="img" aria-label="fridge">🧺</span> Nutri-Kid's Magic Fridge & Pantry
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            Tap some yummy foods below to toggle them in your basket, or type whatever you have in your kitchen today!
+            Tap some yummy foods below to toggle them in your basket, or text search!
           </p>
         </div>
 
@@ -100,7 +121,7 @@ export default function IngredientSelector({
             className="px-4 py-2 text-sm font-semibold rounded-2xl bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 flex items-center gap-1.5 transition-all"
             title="Load the fridge with common, healthy staple foods immediately!"
           >
-            <RefreshCw className="w-4 h-4" /> Load Healthy Staples ❄️
+            <RefreshCw className="w-4 h-4" /> Staples
           </button>
           
           {selectedItems.length > 0 && (
@@ -110,7 +131,7 @@ export default function IngredientSelector({
               type="button"
               className="px-4 py-2 text-sm font-semibold rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 transition-all"
             >
-              <Trash2 className="w-4 h-4" /> Empty Basket
+              <Trash2 className="w-4 h-4" /> Clear
             </button>
           )}
         </div>
@@ -128,7 +149,7 @@ export default function IngredientSelector({
         {selectedItems.length === 0 ? (
           <div className="text-center py-6">
             <p className="text-amber-700/70 text-sm font-medium">Your kitchen basket is empty! 🫙</p>
-            <p className="text-xs text-slate-400 mt-1">Tap foods below, search or click "Load Healthy Staples" to fill it up!</p>
+            <p className="text-xs text-slate-400 mt-1">Tap foods below, search or click "Staples" to fill it up!</p>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -157,27 +178,47 @@ export default function IngredientSelector({
         )}
       </div>
 
-      {/* Custom Item Adder */}
-      <form onSubmit={handleAddCustom} className="mb-8 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
-          <input
-            id="input-custom-ingredient"
-            type="text"
-            placeholder="Type other foods in your kitchen (e.g. spinach, salmon, oats...)"
-            value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 pl-11 pr-4 text-slate-700 font-medium placeholder-slate-400 focus:outline-hidden focus:border-yellow-400 focus:bg-white transition-all text-sm sm:text-base"
-          />
-        </div>
-        <button
-          id="btn-add-ingredient"
-          type="submit"
-          className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-1 shadow-md hover:shadow-lg transition-all"
-        >
-          <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Add</span>
-        </button>
-      </form>
+      {/* Custom Item Adder with Autocomplete */}
+      <div className="mb-8 relative" ref={wrapperRef}>
+        <form onSubmit={handleAddCustom} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+            <input
+              id="input-custom-ingredient"
+              type="text"
+              placeholder="Search or type ingredients (e.g. apple, oats...)"
+              value={customInput}
+              onChange={(e) => {
+                setCustomInput(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 pl-11 pr-4 text-slate-700 font-medium placeholder-slate-400 focus:outline-hidden focus:border-yellow-400 focus:bg-white transition-all text-sm sm:text-base"
+            />
+          </div>
+          <button
+            id="btn-add-ingredient"
+            type="submit"
+            className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-1 shadow-md hover:shadow-lg transition-all"
+          >
+            <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Add</span>
+          </button>
+        </form>
+        {showSuggestions && customInput && filteredSuggestions.length > 0 && (
+          <div className="absolute z-10 w-full mt-2 bg-white border-2 border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+            {filteredSuggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                className="w-full text-left px-4 py-3 text-slate-700 font-medium hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
+                onClick={() => handleSelectSuggestion(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Predefined Food Categories */}
       <div className="space-y-6">

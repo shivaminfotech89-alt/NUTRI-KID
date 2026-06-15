@@ -39,7 +39,7 @@ function getGeminiClient(): GoogleGenAI {
 // Chef Nutri-Kid Master Prompt System Instructions
 const ChefNutriKidPrompt = `You are "Chef Nutri-Kid," a world-class children's nutrition coach and clinical culinary assistant. Your mission is to help parents and kids transform everyday ingredients into exciting, delicious, and balanced plates based on the Harvard Kid’s Healthy Eating Plate.
 
-Your tone is highly enthusiastic, warm, and encouraging (a real "kitchen companion" for families), decorated with fun, kid-friendly emojis!
+Your tone is highly enthusiastic, warm, encouraging, and professional (a real "kitchen companion" for families), decorated with fun, kid-friendly emojis! You must respond in the user's requested language.
 
 Rules for your content generation:
 1. Map every group of food to its corresponding Harvard Kid's Plate quadrant:
@@ -50,12 +50,13 @@ Rules for your content generation:
 2. Include at least 2-3 interactive "Junior Assistant Chef Tasks" where kids can safely help out in the kitchen (e.g., washing, tearing, cold mixing).
 3. Do not suggest deep frying or highly sugary additions. Focus on plant fats/oils (like olive oil, avocado oil, seed oils) over butter.
 4. If the ingredient input is empty or says "empty fridge", kindly propose a delicious meal made of common pantry staples (like oats, apples, yogurt, or whole wheat bread).
+5. Calculate approximate nutritional information (Calories, Protein, Carbs, Fat, Fiber, Key Vitamins) for a standard kid's portion. Make it professional sounding.
 `;
 
 // API endpoint for Recipe generation
 app.post("/api/recipe", async (req, res) => {
   try {
-    const { ingredients } = req.body;
+    const { ingredients, language = "English" } = req.body;
     if (!ingredients || typeof ingredients !== "string") {
       res.status(400).json({ error: "Ingredients must be provided as a string." });
       return;
@@ -65,7 +66,7 @@ app.post("/api/recipe", async (req, res) => {
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
-      contents: `Great chef! Let's cook using these ingredients: "${ingredients}". Transform them into a healthy, gorgeous, kid-approved masterpiece. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
+      contents: `Great chef! Let's cook using these ingredients: "${ingredients}". Transform them into a healthy, gorgeous, kid-approved masterpiece. Please generate the response in ${language}. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
       config: {
         systemInstruction: ChefNutriKidPrompt,
         temperature: 0.8,
@@ -120,6 +121,18 @@ app.post("/api/recipe", async (req, res) => {
             tutorialQuery: {
               type: Type.STRING,
               description: "Exact search term to find a tutorial video (e.g., 'kids healthy brown rice bowl recipe tutorial')."
+            },
+            nutrition: {
+              type: Type.OBJECT,
+              properties: {
+                calories: { type: Type.INTEGER, description: "Total calories for a kid's portion" },
+                protein: { type: Type.STRING, description: "Protein amount (e.g., '15g')" },
+                carbs: { type: Type.STRING, description: "Carbohydrates amount (e.g., '30g')" },
+                fat: { type: Type.STRING, description: "Healthy fats amount (e.g., '10g')" },
+                fiber: { type: Type.STRING, description: "Fiber amount (e.g., '8g')" },
+                keyVitamins: { type: Type.STRING, description: "Key vitamins provided (e.g., 'Vitamin A, C, Iron')" }
+              },
+              required: ["calories", "protein", "carbs", "fat", "fiber", "keyVitamins"]
             }
           },
           required: [
@@ -129,7 +142,8 @@ app.post("/api/recipe", async (req, res) => {
             "juniorDuties",
             "powerMealFact",
             "moveChallenge",
-            "tutorialQuery"
+            "tutorialQuery",
+            "nutrition"
           ]
         }
       }
@@ -145,6 +159,71 @@ app.post("/api/recipe", async (req, res) => {
     console.error("Gemini culinary engine error:", error);
     res.status(500).json({
       error: error.message || "Something went wrong in Chef Nutri-Kid's kitchen!",
+    });
+  }
+});
+
+// API endpoint for Weekly Meal Plan generation
+app.post("/api/weekly-plan", async (req, res) => {
+  try {
+    const { ageGroup, language = "English" } = req.body;
+    if (!ageGroup) {
+      res.status(400).json({ error: "Age group must be provided." });
+      return;
+    }
+
+    const ai = getGeminiClient();
+
+    const prompt = `You are a professional pediatric dietitian and "Chef Nutri-Kid".
+Please create a professional weekly healthy meal chart (7 days) for a child in the age group: ${ageGroup}.
+Adhere to the Harvard Kid's Healthy Eating Plate guidelines.
+Please generate the response in ${language}.
+Return a structured weekly meal plan and a concise grocery shopping list. Ensure professional formatting and accurate language translation.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: ChefNutriKidPrompt,
+        temperature: 0.7,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "Professional title for the weekly plan" },
+            tips: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 professional nutrition tips for this age group" },
+            days: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  day: { type: Type.STRING, description: "Name of the day (e.g., Monday)" },
+                  breakfast: { type: Type.STRING },
+                  lunch: { type: Type.STRING },
+                  dinner: { type: Type.STRING },
+                  snacks: { type: Type.STRING },
+                  powerFact: { type: Type.STRING, description: "Short nutritional fact about this day's meals" }
+                },
+                required: ["day", "breakfast", "lunch", "dinner", "snacks", "powerFact"]
+              }
+            },
+            shoppingList: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Categorized shopping list items" }
+          },
+          required: ["title", "tips", "days", "shoppingList"]
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) {
+      throw new Error("No response string received from the Gemini clinical culinary engine.");
+    }
+
+    res.json(JSON.parse(text));
+  } catch (error: any) {
+    console.error("Gemini weekly chart engine error:", error);
+    res.status(500).json({
+      error: error.message || "Something went wrong generating the weekly chart!",
     });
   }
 });

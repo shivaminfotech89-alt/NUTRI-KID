@@ -11,6 +11,32 @@ export interface Recipe {
   powerMealFact: string;
   moveChallenge: string;
   tutorialQuery: string;
+  nutrition: {
+    calories: number;
+    protein: string;
+    carbs: string;
+    fat: string;
+    fiber: string;
+    keyVitamins: string;
+  };
+}
+
+export type AgeGroup = '1-3 years (Toddler)' | '4-5 years (Preschooler)' | '6-12 years (School Age)';
+
+export interface DailyMeal {
+  day: string;
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+  snacks: string;
+  powerFact: string;
+}
+
+export interface WeeklyChart {
+  title: string;
+  tips: string[];
+  days: DailyMeal[];
+  shoppingList: string[];
 }
 
 export interface FoodItem {
@@ -53,4 +79,14 @@ export const PRESET_INGREDIENTS: FoodItem[] = [
   { id: 'walnuts', name: 'Walnuts', emoji: '🥜', category: 'fatsHydrates', color: 'bg-amber-100 border-amber-300 text-amber-800' },
   { id: 'seeds', name: 'Chia Seeds', emoji: '🌱', category: 'fatsHydrates', color: 'bg-green-50 border-green-200 text-green-800' },
   { id: 'water', name: 'Fresh Water', emoji: '💧', category: 'fatsHydrates', color: 'bg-sky-100 border-sky-300 text-sky-800' }
+];
+
+export const COMMON_INGREDIENTS_DB = [
+  "Apple", "Asparagus", "Avocado", "Banana", "Beef", "Bell Pepper", "Black Beans", "Blueberries", 
+  "Broccoli", "Brown Rice", "Cabbage", "Carrots", "Cauliflower", "Celery", "Cheese", "Chia Seeds", 
+  "Chicken Breast", "Chickpeas", "Corn", "Cucumber", "Eggplant", "Eggs", "Garlic", "Ginger", 
+  "Greek Yogurt", "Green Beans", "Honey", "Kale", "Lemon", "Lentils", "Mango", "Milk", "Mushrooms", 
+  "Oats", "Olive Oil", "Onion", "Orange", "Peanut Butter", "Peas", "Pork", "Potatoes", "Quinoa", 
+  "Salmon", "Spinach", "Strawberries", "Sweet Potato", "Tofu", "Tomatoes", "Tuna", "Turkey", 
+  "Walnuts", "Watermelon", "Wheat Pasta", "Whole Wheat Bread", "Zucchini"
 ];
