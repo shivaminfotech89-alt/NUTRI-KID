@@ -36,6 +36,24 @@ function getGeminiClient(): GoogleGenAI {
   return aiInstance;
 }
 
+// Helper to retry on 503/429 specifically
+async function generateWithRetry(ai: GoogleGenAI, params: any, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error: any) {
+      const status = error?.status || error?.response?.status || 500;
+      const isRetryable = status === 503 || status === 429 || error.message?.includes('503') || error.message?.includes('429') || error.message?.includes('high demand');
+      if (!isRetryable || i === maxRetries - 1) {
+        throw error;
+      }
+      const delay = 1000 * Math.pow(2, i);
+      console.warn(`Gemini API busy (attempt ${i + 1}/${maxRetries}). Retrying in ${delay}ms...`);
+      await new Promise(res => setTimeout(res, delay));
+    }
+  }
+}
+
 // Chef Nutri-Kid Master Prompt System Instructions
 const ChefNutriKidPrompt = `You are "Chef Nutri-Kid," a world-class children's nutrition coach and clinical culinary assistant. Your mission is to help parents and kids transform everyday ingredients into exciting, delicious, and balanced plates based on the Harvard Kid’s Healthy Eating Plate.
 
@@ -56,7 +74,7 @@ Rules for your content generation:
 // API endpoint for Recipe generation
 app.post("/api/recipe", async (req, res) => {
   try {
-    const { ingredients, language = "English" } = req.body;
+    const { ingredients, language = "English", diet = "Any / No Restriction" } = req.body;
     if (!ingredients || typeof ingredients !== "string") {
       res.status(400).json({ error: "Ingredients must be provided as a string." });
       return;
@@ -64,9 +82,9 @@ app.post("/api/recipe", async (req, res) => {
 
     const ai = getGeminiClient();
 
-    const response = await ai.models.generateContent({
+    const response = await generateWithRetry(ai, {
       model: "gemini-3.5-flash",
-      contents: `Great chef! Let's cook using these ingredients: "${ingredients}". Transform them into a healthy, gorgeous, kid-approved masterpiece. Please generate the response in ${language}. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
+      contents: `Great chef! Let's cook using these ingredients: "${ingredients}". The dietary preference is "${diet}". Transform them into a healthy, gorgeous, kid-approved masterpiece matching this diet. Please generate the response in ${language}. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
       config: {
         systemInstruction: ChefNutriKidPrompt,
         temperature: 0.8,
@@ -122,6 +140,10 @@ app.post("/api/recipe", async (req, res) => {
               type: Type.STRING,
               description: "Exact search term to find a tutorial video (e.g., 'kids healthy brown rice bowl recipe tutorial')."
             },
+            dietIndicator: {
+              type: Type.STRING,
+              description: "A short indicator of the recipe's diet type with an emoji (e.g., '🟢 Pure Veg', '🔴 Non-Veg', '🥚 Eggetarian', '🌱 Vegan', '🧄 Jain')."
+            },
             nutrition: {
               type: Type.OBJECT,
               properties: {
@@ -143,6 +165,7 @@ app.post("/api/recipe", async (req, res) => {
             "powerMealFact",
             "moveChallenge",
             "tutorialQuery",
+            "dietIndicator",
             "nutrition"
           ]
         }
@@ -157,8 +180,12 @@ app.post("/api/recipe", async (req, res) => {
     res.json(JSON.parse(text));
   } catch (error: any) {
     console.error("Gemini culinary engine error:", error);
+    let errorMessage = error.message || "Something went wrong in Chef Nutri-Kid's kitchen!";
+    if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("429")) {
+      errorMessage = "The AI Chef's kitchen is currently experiencing high demand! Please try again in a moment.";
+    }
     res.status(500).json({
-      error: error.message || "Something went wrong in Chef Nutri-Kid's kitchen!",
+      error: errorMessage,
     });
   }
 });
@@ -166,7 +193,7 @@ app.post("/api/recipe", async (req, res) => {
 // API endpoint for Weekly Meal Plan generation
 app.post("/api/weekly-plan", async (req, res) => {
   try {
-    const { ageGroup, language = "English" } = req.body;
+    const { ageGroup, language = "English", diet = "Any / No Restriction" } = req.body;
     if (!ageGroup) {
       res.status(400).json({ error: "Age group must be provided." });
       return;
@@ -176,11 +203,12 @@ app.post("/api/weekly-plan", async (req, res) => {
 
     const prompt = `You are a professional pediatric dietitian and "Chef Nutri-Kid".
 Please create a professional weekly healthy meal chart (7 days) for a child in the age group: ${ageGroup}.
+The dietary preference is: ${diet}. Ensure all meals strictly adhere to this dietary restriction.
 Adhere to the Harvard Kid's Healthy Eating Plate guidelines.
 Please generate the response in ${language}.
 Return a structured weekly meal plan and a concise grocery shopping list. Ensure professional formatting and accurate language translation.`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateWithRetry(ai, {
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -222,8 +250,12 @@ Return a structured weekly meal plan and a concise grocery shopping list. Ensure
     res.json(JSON.parse(text));
   } catch (error: any) {
     console.error("Gemini weekly chart engine error:", error);
+    let errorMessage = error.message || "Something went wrong generating the weekly chart!";
+    if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("429")) {
+      errorMessage = "The AI Chef's kitchen is currently experiencing high demand! Please try again in a moment.";
+    }
     res.status(500).json({
-      error: error.message || "Something went wrong generating the weekly chart!",
+      error: errorMessage,
     });
   }
 });

@@ -11,6 +11,7 @@ export interface Recipe {
   powerMealFact: string;
   moveChallenge: string;
   tutorialQuery: string;
+  dietIndicator: string;
   nutrition: {
     calories: number;
     protein: string;
@@ -20,6 +21,8 @@ export interface Recipe {
     keyVitamins: string;
   };
 }
+
+export type DietaryPreference = 'Any / No Restriction' | 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Eggetarian' | 'Jain';
 
 export type AgeGroup = '1-3 years (Toddler)' | '4-5 years (Preschooler)' | '6-12 years (School Age)';
 

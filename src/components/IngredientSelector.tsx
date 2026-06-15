@@ -13,36 +13,66 @@ export default function IngredientSelector({
   selectedItems,
   onChangeSelected,
   onGenerate,
-  isLoading
-}: IngredientSelectorProps) {
+  isLoading,
+  diet
+}: IngredientSelectorProps & { diet: string }) {
   const [customInput, setCustomInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const getExcludedItems = (currentDiet: string) => {
+    const nonVeg = ["Chicken Breast", "Salmon", "Beef", "Pork", "Tuna", "Turkey"];
+    const eggs = ["Eggs"];
+    const dairyAndHoney = ["Greek Yogurt", "ymlk", "Cheese", "Milk", "Honey"];
+    const roots = ["Carrots", "Garlic", "Ginger", "Onion", "Potatoes", "Sweet Potato"];
+
+    let excluded: string[] = [];
+    if (currentDiet === 'Vegetarian') {
+      excluded = [...nonVeg, ...eggs];
+    } else if (currentDiet === 'Vegan') {
+      excluded = [...nonVeg, ...eggs, ...dairyAndHoney];
+    } else if (currentDiet === 'Eggetarian') {
+      excluded = [...nonVeg];
+    } else if (currentDiet === 'Jain') {
+      excluded = [...nonVeg, ...eggs, ...roots];
+    }
+    return excluded;
+  };
+
+  useEffect(() => {
+    const excluded = getExcludedItems(diet);
+    const hasExcluded = selectedItems.some(item => excluded.includes(item));
+    if (hasExcluded) {
+      onChangeSelected(selectedItems.filter(item => !excluded.includes(item)));
+    }
+  }, [diet, selectedItems, onChangeSelected]);
+
+  const excludedList = getExcludedItems(diet);
 
   // Group presets
   const categories = {
     fruitsVeggies: {
       title: 'Vegetables & Fruits 🥬🍎',
       desc: 'Fill half your plate! Built for strong immunity shield & bright vision power!',
-      items: PRESET_INGREDIENTS.filter(i => i.category === 'fruitsVeggies'),
+      items: PRESET_INGREDIENTS.filter(i => i.category === 'fruitsVeggies' && !excludedList.includes(i.name)),
       badgeColor: 'bg-emerald-500 text-white'
     },
     wholeGrains: {
       title: 'Whole Grains 🌾🍞',
       desc: 'Quarter of your plate! Steady-energy engine chargers for non-stop play!',
-      items: PRESET_INGREDIENTS.filter(i => i.category === 'wholeGrains'),
+      items: PRESET_INGREDIENTS.filter(i => i.category === 'wholeGrains' && !excludedList.includes(i.name)),
       badgeColor: 'bg-amber-500 text-white'
     },
     strongProtein: {
       title: 'Healthy Protein 🍗🫘',
       desc: 'Quarter of your plate! Essential muscle builders to make you strong and active!',
-      items: PRESET_INGREDIENTS.filter(i => i.category === 'strongProtein'),
+      items: PRESET_INGREDIENTS.filter(i => i.category === 'strongProtein' && !excludedList.includes(i.name)),
       badgeColor: 'bg-rose-500 text-white'
     },
     fatsHydrates: {
       title: 'Fats & Hydration 🥑💧',
       desc: 'Super engine smoothers & pure sparkling water for brain lubrication!',
-      items: PRESET_INGREDIENTS.filter(i => i.category === 'fatsHydrates'),
+      items: PRESET_INGREDIENTS.filter(i => i.category === 'fatsHydrates' && !excludedList.includes(i.name)),
       badgeColor: 'bg-sky-500 text-white'
     }
   };
@@ -60,7 +90,7 @@ export default function IngredientSelector({
   }, []);
 
   const filteredSuggestions = COMMON_INGREDIENTS_DB.filter(
-    item => item.toLowerCase().includes(customInput.toLowerCase()) && !selectedItems.includes(item)
+    item => item.toLowerCase().includes(customInput.toLowerCase()) && !selectedItems.includes(item) && !excludedList.includes(item)
   ).slice(0, 5);
 
   const handleToggleItem = (name: string) => {
@@ -76,7 +106,7 @@ export default function IngredientSelector({
     const clean = customInput.trim();
     if (!clean) return;
 
-    if (!selectedItems.includes(clean)) {
+    if (!selectedItems.includes(clean) && !excludedList.includes(clean)) {
       onChangeSelected([...selectedItems, clean]);
     }
     setCustomInput('');
@@ -84,7 +114,7 @@ export default function IngredientSelector({
   };
 
   const handleSelectSuggestion = (item: string) => {
-    if (!selectedItems.includes(item)) {
+    if (!selectedItems.includes(item) && !excludedList.includes(item)) {
       onChangeSelected([...selectedItems, item]);
     }
     setCustomInput('');
@@ -93,7 +123,8 @@ export default function IngredientSelector({
 
   const handleEmptyFridge = () => {
     const staples = ['Broccoli', 'Carrots', 'Brown Rice', 'Chicken Breast', 'Eggs', 'Olive Oil', 'Fresh Water'];
-    onChangeSelected(staples);
+    const filteredStaples = staples.filter(item => !excludedList.includes(item));
+    onChangeSelected(filteredStaples);
   };
 
   const handleClearAll = () => {

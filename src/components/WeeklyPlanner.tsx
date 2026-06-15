@@ -4,11 +4,12 @@ import { WeeklyChart, AgeGroup } from '../types';
 
 interface WeeklyPlannerProps {
   language: string;
+  diet: string;
 }
 
 const AGE_GROUPS: AgeGroup[] = ['1-3 years (Toddler)', '4-5 years (Preschooler)', '6-12 years (School Age)'];
 
-export default function WeeklyPlanner({ language }: WeeklyPlannerProps) {
+export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
   const [ageGroup, setAgeGroup] = useState<string>(AGE_GROUPS[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [weeklyChart, setWeeklyChart] = useState<WeeklyChart | null>(null);
@@ -22,9 +23,14 @@ export default function WeeklyPlanner({ language }: WeeklyPlannerProps) {
       const response = await fetch('/api/weekly-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ageGroup, language })
+        body: JSON.stringify({ ageGroup, language, diet })
       });
-      if (!response.ok) throw new Error('Failed to generate weekly chart.');
+      if (!response.ok) {
+        if (response.status === 404) throw new Error('API server not found! If deployed to Netlify without backend functions, the AI engine won\'t work.');
+        let errMessage = 'Failed to generate weekly chart.';
+        try { const errData = await response.json(); if(errData.error) errMessage = errData.error; } catch(e) {}
+        throw new Error(errMessage);
+      }
       const data = await response.json();
       if (data.error) throw new Error(data.error);
       setWeeklyChart(data);

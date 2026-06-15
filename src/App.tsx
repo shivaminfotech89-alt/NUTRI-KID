@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, Utensils, BookOpen, UserCheck, ShieldAlert, Award, ArrowLeft, Search, HelpCircle, Activity, ChevronRight, Upload, PlayCircle, Globe, Calendar as CalendarIcon } from 'lucide-react';
+import { Sparkles, Utensils, BookOpen, UserCheck, ShieldAlert, Award, ArrowLeft, Search, HelpCircle, Activity, ChevronRight, Upload, PlayCircle, Globe, Calendar as CalendarIcon, Leaf } from 'lucide-react';
 import IngredientSelector from './components/IngredientSelector';
 import HarvardPlate from './components/HarvardPlate';
 import WeeklyPlanner from './components/WeeklyPlanner';
-import { Recipe } from './types';
+import { Recipe, DietaryPreference } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'pantry' | 'weekly'>('pantry');
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>(['Broccoli', 'Carrots', 'Brown Rice', 'Chicken Breast', 'Eggs', 'Olive Oil', 'Fresh Water']);
   const [language, setLanguage] = useState<string>('English');
+  const [diet, setDiet] = useState<string>('Any / No Restriction');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +54,19 @@ export default function App() {
       const response = await fetch('/api/recipe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients: ingredientString, language })
+        body: JSON.stringify({ ingredients: ingredientString, language, diet })
       });
 
       if (!response.ok) {
-        throw new Error('Our baking ovens got a bit too hot! Let\'s try mixing ingredients again.');
+        if (response.status === 404) {
+          throw new Error('API server not found! If you deployed this to Netlify without setting up backend functions, the AI engine won\'t work. Please try deploying on a full-stack platform like Cloud Run.');
+        }
+        let errMessage = 'Our baking ovens got a bit too hot! Let\'s try mixing ingredients again.';
+        try {
+            const errData = await response.json();
+            if (errData.error) errMessage = errData.error;
+        } catch (e) {}
+        throw new Error(errMessage);
       }
 
       const data = await response.json();
@@ -135,6 +144,19 @@ export default function App() {
             </div>
             
             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200 shadow-sm">
+              <Leaf className="w-4 h-4 text-emerald-500" />
+              <select
+                value={diet}
+                onChange={(e) => setDiet(e.target.value)}
+                className="bg-transparent text-sm font-bold text-emerald-700 outline-hidden cursor-pointer"
+              >
+                {['Any / No Restriction', 'Vegetarian', 'Non-Vegetarian', 'Vegan', 'Eggetarian', 'Jain'].map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200 shadow-sm">
               <Globe className="w-4 h-4 text-slate-500" />
               <select
                 value={language}
@@ -195,7 +217,7 @@ export default function App() {
           /* View A: Selector Views */
           <div className="space-y-6">
             {activeTab === 'weekly' ? (
-              <WeeklyPlanner language={language} />
+              <WeeklyPlanner language={language} diet={diet} />
             ) : isLoading ? (
               /* Loading State Screen with rotating tips */
               <div className="bg-white rounded-3xl p-12 text-center border-4 border-[#FF6B6B] shadow-xl max-w-2xl mx-auto my-12 animate-pulse">
@@ -220,6 +242,7 @@ export default function App() {
                 onChangeSelected={setSelectedIngredients}
                 onGenerate={handleGenerateRecipe}
                 isLoading={isLoading}
+                diet={diet}
               />
             )}
           </div>
@@ -231,7 +254,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FFE8D6] rounded-2xl p-4 border-2 border-[#FFB280]">
               <div>
                 <p className="text-xs uppercase font-extrabold tracking-widest text-[#A35D36]">
-                  ✨ Fresh Out of the Kitchen
+                  ✨ Fresh Out of the Kitchen {recipe.dietIndicator && <span className="bg-white/50 px-2 py-0.5 rounded-full ml-2 inline-block shadow-xs border border-white/60">{recipe.dietIndicator}</span>}
                 </p>
                 <h2 id="recipe-meal-title" className="text-2xl font-black text-[#7D4427] leading-tight">
                   {recipe.mealName}
