@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PRESET_INGREDIENTS, FoodItem, COMMON_INGREDIENTS_DB } from '../types';
-import { Plus, Trash2, ShoppingBasket, Search, Sparkles, RefreshCw, Globe } from 'lucide-react';
+import { Plus, Trash2, ShoppingBasket, Search, Sparkles, RefreshCw, Globe, Camera } from 'lucide-react';
 
 interface IngredientSelectorProps {
   selectedItems: string[];
@@ -132,8 +132,68 @@ export default function IngredientSelector({
     setCustomInput('');
   };
 
+  const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleScanImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64StringWithScheme = event.target?.result as string;
+      const match = base64StringWithScheme.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+      if (!match) {
+        alert("Invalid image format.");
+        return;
+      }
+      const mimeType = match[1];
+      const imageBase64 = match[2];
+
+      setIsScanning(true);
+      try {
+        const response = await fetch('/api/scan-ingredients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64, mimeType })
+        });
+        
+        if (!response.ok) {
+           let errMessage = 'Failed to scan image.';
+           try { const errData = await response.json(); if(errData.error) errMessage = errData.error; } catch(e) {}
+           throw new Error(errMessage);
+        }
+
+        const data = await response.json();
+        if (data.ingredients && Array.isArray(data.ingredients)) {
+           const newItems = data.ingredients.filter((item: string) => !selectedItems.includes(item) && !excludedList.includes(item));
+           if (newItems.length > 0) {
+              onChangeSelected([...selectedItems, ...newItems]);
+           } else {
+              alert("No new or allowed ingredients found from the picture!");
+           }
+        }
+      } catch (err: any) {
+        alert(err.message || 'Failed to scan image.');
+      } finally {
+        setIsScanning(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border-4 border-yellow-200 transition-all">
+      <input 
+        type="file" 
+        accept="image/*" 
+        capture="environment" 
+        ref={fileInputRef} 
+        onChange={handleScanImage} 
+        className="hidden" 
+      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 id="pantry-title" className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -145,6 +205,15 @@ export default function IngredientSelector({
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
+            disabled={isScanning}
+            className="px-4 py-2 text-sm font-semibold rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1.5 transition-all disabled:opacity-50"
+            title="Scan items with camera"
+          >
+            <Camera className="w-4 h-4" /> {isScanning ? 'Scanning...' : 'Scan'}
+          </button>
           <button
             id="btn-empty-fridge"
             onClick={handleEmptyFridge}

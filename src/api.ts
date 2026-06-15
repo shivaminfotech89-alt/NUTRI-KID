@@ -73,7 +73,7 @@ apiRouter.post("/recipe", async (req, res) => {
     const ai = getGeminiClient();
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: `Great chef! Let's cook using these ingredients: "${ingredients}". The dietary preference is "${diet}". Transform them into a healthy, gorgeous, kid-approved masterpiece matching this diet. Please generate the response in ${language}. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
       config: {
         systemInstruction: ChefNutriKidPrompt,
@@ -171,7 +171,66 @@ apiRouter.post("/recipe", async (req, res) => {
   } catch (error: any) {
     console.error("Gemini culinary engine error:", error);
     let errorMessage = error.message || "Something went wrong in Chef Nutri-Kid's kitchen!";
-    if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("429")) {
+    if (errorMessage.includes("429") || errorMessage.includes("quota")) {
+      errorMessage = "API Rate Limit Exceeded: The AI Chef has run out of daily free quota. Please try again tomorrow or use an upgraded API key.";
+    } else if (errorMessage.includes("503") || errorMessage.includes("high demand")) {
+      errorMessage = "The AI Chef's kitchen is currently experiencing high demand! Please try again in a moment.";
+    }
+    res.status(500).json({
+      error: errorMessage,
+    });
+  }
+});
+
+// API endpoint for scanning ingredients from image
+apiRouter.post("/scan-ingredients", async (req, res) => {
+  try {
+    const { imageBase64, mimeType = "image/jpeg" } = req.body;
+    if (!imageBase64) {
+      res.status(400).json({ error: "Image data must be provided." });
+      return;
+    }
+
+    const ai = getGeminiClient();
+
+    const response = await generateWithRetry(ai, {
+      model: "gemini-3.1-flash-lite",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: "Identify the food ingredients in this image. Return a JSON array of strings representing the names of the ingredients. Use simple, common names (e.g. 'Apple', 'Oats', 'Broccoli', 'Eggs'). Ignore non-food items. If no food is found, return an empty array." },
+            { 
+              inlineData: {
+                data: imageBase64,
+                mimeType: mimeType
+              }
+            }
+          ]
+        }
+      ],
+      config: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) {
+        throw new Error("No response string received from the Gemini clinical culinary engine.");
+    }
+    
+    res.json({ ingredients: JSON.parse(text) });
+  } catch (error: any) {
+    console.error("Gemini scan engine error:", error);
+    let errorMessage = error.message || "Something went wrong scanning your image!";
+    if (errorMessage.includes("429") || errorMessage.includes("quota")) {
+      errorMessage = "API Rate Limit Exceeded: The AI Chef has run out of daily free quota. Please try again tomorrow or use an upgraded API key.";
+    } else if (errorMessage.includes("503") || errorMessage.includes("high demand")) {
       errorMessage = "The AI Chef's kitchen is currently experiencing high demand! Please try again in a moment.";
     }
     res.status(500).json({
@@ -199,7 +258,7 @@ Please generate the response in ${language}.
 Return a structured weekly meal plan and a concise grocery shopping list. Ensure professional formatting and accurate language translation.`;
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: prompt,
       config: {
         systemInstruction: ChefNutriKidPrompt,
@@ -241,7 +300,9 @@ Return a structured weekly meal plan and a concise grocery shopping list. Ensure
   } catch (error: any) {
     console.error("Gemini weekly chart engine error:", error);
     let errorMessage = error.message || "Something went wrong generating the weekly chart!";
-    if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("429")) {
+    if (errorMessage.includes("429") || errorMessage.includes("quota")) {
+      errorMessage = "API Rate Limit Exceeded: The AI Chef has run out of daily free quota. Please try again tomorrow or use an upgraded API key.";
+    } else if (errorMessage.includes("503") || errorMessage.includes("high demand")) {
       errorMessage = "The AI Chef's kitchen is currently experiencing high demand! Please try again in a moment.";
     }
     res.status(500).json({
