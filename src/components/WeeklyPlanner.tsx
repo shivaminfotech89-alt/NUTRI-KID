@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Calendar, ShoppingCart, Info, Sparkles, ChevronDown, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Calendar, ShoppingCart, Info, Sparkles, ChevronDown, CheckCircle2, ShieldAlert, Download } from 'lucide-react';
 import { WeeklyChart, AgeGroup } from '../types';
+import { downloadAsPDF } from '../utils';
 
 interface WeeklyPlannerProps {
   language: string;
   diet: string;
+  childProfile?: any;
 }
 
 const AGE_GROUPS: AgeGroup[] = ['1-3 years (Toddler)', '4-5 years (Preschooler)', '6-12 years (School Age)'];
 
-export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
+export default function WeeklyPlanner({ language, diet, childProfile }: WeeklyPlannerProps) {
   const [ageGroup, setAgeGroup] = useState<string>(AGE_GROUPS[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [weeklyChart, setWeeklyChart] = useState<WeeklyChart | null>(null);
@@ -23,7 +25,7 @@ export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
       const response = await fetch('/api/weekly-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ageGroup, language, diet })
+        body: JSON.stringify({ ageGroup, language, diet, childProfile })
       });
       if (!response.ok) {
         if (response.status === 404) throw new Error('API server not found! Please ensure your backend functions are deployed and GEMINI_API_KEY is configured in your hosting environment.');
@@ -43,7 +45,7 @@ export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-indigo-100">
+      <div className="print:hidden bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-indigo-100">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
@@ -55,18 +57,24 @@ export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
           </div>
           
           <div className="flex flex-col gap-3 w-full md:w-auto">
-            <div className="relative">
-              <select
-                value={ageGroup}
-                onChange={(e) => setAgeGroup(e.target.value)}
-                className="w-full md:w-64 appearance-none bg-indigo-50 border-2 border-indigo-100 text-indigo-900 font-bold py-3 pl-4 pr-10 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-400 cursor-pointer"
-              >
-                {AGE_GROUPS.map(ag => (
-                  <option key={ag} value={ag}>{ag}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none w-5 h-5" />
-            </div>
+            {childProfile ? (
+              <div className="bg-indigo-50 border-2 border-indigo-100 text-indigo-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center">
+                <span className="truncate">Active Profile: {childProfile.name}</span>
+              </div>
+            ) : (
+              <div className="relative">
+                <select
+                  value={ageGroup}
+                  onChange={(e) => setAgeGroup(e.target.value)}
+                  className="w-full md:w-64 appearance-none bg-indigo-50 border-2 border-indigo-100 text-indigo-900 font-bold py-3 pl-4 pr-10 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-400 cursor-pointer"
+                >
+                  {AGE_GROUPS.map(ag => (
+                    <option key={ag} value={ag}>{ag}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none w-5 h-5" />
+              </div>
+            )}
             
             <button
               onClick={handleGenerate}
@@ -88,12 +96,20 @@ export default function WeeklyPlanner({ language, diet }: WeeklyPlannerProps) {
       </div>
 
       {weeklyChart && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div id="weekly-plan-pdf-container" className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#FFFDF0] p-4 rounded-3xl">
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100">
-               <h3 className="text-xl font-black text-slate-800 mb-6">{weeklyChart.title}</h3>
+               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                 <h3 className="text-xl font-black text-slate-800 uppercase">{weeklyChart.title}</h3>
+                 <button 
+                   onClick={() => downloadAsPDF('weekly-plan-pdf-container', 'weekly-meal-plan.pdf')} 
+                   className="print:hidden text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors"
+                 >
+                   <Download className="w-4 h-4" /> Download PDF
+                 </button>
+               </div>
                
-               <div className="space-y-6">
+               <div className="space-y-6 print:space-y-2">
                  {weeklyChart.days.map((day, idx) => (
                    <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                      <div className="bg-indigo-100/50 px-4 py-2 border-b border-indigo-100">

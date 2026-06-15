@@ -1,23 +1,45 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, Utensils, BookOpen, UserCheck, ShieldAlert, Award, ArrowLeft, Search, HelpCircle, Activity, ChevronRight, Upload, PlayCircle, Globe, Calendar as CalendarIcon, Leaf } from 'lucide-react';
+import { Sparkles, Utensils, BookOpen, UserCheck, ShieldAlert, Award, ArrowLeft, Search, HelpCircle, Activity, ChevronRight, Upload, PlayCircle, Globe, Calendar as CalendarIcon, Leaf, Users, Download, BookmarkPlus, Bookmark, Book, Trash2 } from 'lucide-react';
 import IngredientSelector from './components/IngredientSelector';
 import HarvardPlate from './components/HarvardPlate';
 import WeeklyPlanner from './components/WeeklyPlanner';
-import { Recipe, DietaryPreference } from './types';
+import ProfileManager from './components/ProfileManager';
+import { Recipe, DietaryPreference, ChildProfile, HealthReport } from './types';
+import { downloadAsPDF } from './utils';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'pantry' | 'weekly'>('pantry');
+  const [activeTab, setActiveTab] = useState<'pantry' | 'weekly' | 'box'>('pantry');
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>(['Broccoli', 'Carrots', 'Brown Rice', 'Chicken Breast', 'Eggs', 'Olive Oil', 'Fresh Water']);
   const [language, setLanguage] = useState<string>('English');
-  const [diet, setDiet] = useState<string>('Any / No Restriction');
+  const [diet, setDiet] = useState<DietaryPreference>('Any / No Restriction');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [healthReport, setHealthReport] = useState<HealthReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [moveChallengeDone, setMoveChallengeDone] = useState<boolean>(false);
   const [showMoveConfetti, setShowMoveConfetti] = useState<boolean>(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Recipe Box State
+  const [savedRecipes, setSavedRecipes] = useState<Recipe[]>(() => {
+    try {
+      const stored = localStorage.getItem('nutripeds_recipe_box');
+      return stored ? JSON.parse(stored) : [];
+    } catch(e) { return []; }
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('nutripeds_recipe_box', JSON.stringify(savedRecipes));
+  }, [savedRecipes]);
+
+  // Profile Management State
+  const [profiles, setProfiles] = useState<ChildProfile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+
+  const activeProfile = profiles.find(p => p.id === activeProfileId);
 
   // Playful cooking state tips to rotate through during generation
   const [loadingTipIndex, setLoadingTipIndex] = useState(0);
@@ -48,13 +70,20 @@ export default function App() {
     setMoveChallengeDone(false);
     setShowMoveConfetti(false);
     setUploadedPhotos([]);
+    setHealthReport(null);
 
     try {
       const ingredientString = selectedIngredients.join(', ');
+      
+      const requestBody: any = { ingredients: ingredientString, language, diet: activeProfile ? activeProfile.foodCategories : diet };
+      if (activeProfile) {
+         requestBody.childProfile = activeProfile;
+      }
+
       const response = await fetch('/api/recipe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients: ingredientString, language, diet })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -83,6 +112,36 @@ export default function App() {
     }
   };
 
+  const handleGenerateReport = async (profile: ChildProfile) => {
+    setIsLoading(true);
+    setError(null);
+    setRecipe(null);
+    setHealthReport(null);
+    setShowProfileModal(false);
+
+    try {
+      const response = await fetch('/api/health-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childProfile: profile, language })
+      });
+
+      if (!response.ok) {
+        let errMessage = 'Failed to generate report.';
+        try { const errData = await response.json(); if(errData.error) errMessage = errData.error; } catch(e) {}
+        throw new Error(errMessage);
+      }
+
+      const data = await response.json();
+      setHealthReport(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to generate the creative health report.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const toggleTask = (task: string) => {
     if (completedTasks.includes(task)) {
       setCompletedTasks(completedTasks.filter(t => t !== task));
@@ -103,7 +162,7 @@ export default function App() {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file: File) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result && typeof e.target.result === 'string') {
@@ -119,11 +178,22 @@ export default function App() {
       {/* Visual Accent top ribbon */}
       <div className="h-3 bg-gradient-to-r from-[#FF6B6B] via-[#FFD93D] to-[#4ECDC4]"></div>
 
+      {showProfileModal && (
+        <ProfileManager 
+          profiles={profiles} 
+          setProfiles={setProfiles} 
+          activeProfileId={activeProfileId} 
+          setActiveProfileId={setActiveProfileId} 
+          onClose={() => setShowProfileModal(false)}
+          onGenerateReport={handleGenerateReport}
+        />
+      )}
+
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
 
         {/* Global Header Section */}
-        <header className="flex flex-col sm:flex-row items-center justify-between bg-white rounded-3xl p-5 md:p-6 shadow-sm border-2 border-[#FFD966] mb-6 gap-4">
+        <header className="print:hidden flex flex-col sm:flex-row items-center justify-between bg-white rounded-3xl p-5 md:p-6 shadow-sm border-2 border-[#FFD966] mb-6 gap-4 relative">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-[#FF6B6B] rounded-2xl flex items-center justify-center text-4xl shadow-md animate-chef-bounce">
               👨‍🍳
@@ -133,27 +203,37 @@ export default function App() {
                 CHEF NUTRI-KID
               </h1>
               <p className="text-xs sm:text-sm font-bold text-[#FF6B6B] flex items-center gap-1.5">
-                Your Culinary Buddy & Nutrition Companion! <span className="animate-pulse">🌟</span>
+                Powered by NutriPeds AI <span className="animate-pulse">🌟</span>
               </p>
             </div>
           </div>
 
+          {/* Profile & Controls */}
           <div className="flex flex-col items-center sm:items-end gap-3 text-center sm:text-right">
-            <div className="bg-[#4ECDC4] px-5 py-2.5 rounded-full text-white font-extrabold text-xs sm:text-sm shadow-xs uppercase tracking-wider">
-              🍏 Harvard Kid's Plate Authorized
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowProfileModal(true)}
+                className="bg-[#4ECDC4] hover:bg-teal-500 px-4 py-2 rounded-2xl text-white font-black text-xs shadow-sm uppercase tracking-wider flex items-center gap-2 transition-colors border-2 border-teal-600"
+              >
+                <Users className="w-4 h-4" /> {activeProfile ? `Profile: ${activeProfile.name}` : 'NutriPeds Profiles'}
+              </button>
             </div>
             
             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200 shadow-sm">
               <Leaf className="w-4 h-4 text-emerald-500" />
-              <select
-                value={diet}
-                onChange={(e) => setDiet(e.target.value)}
-                className="bg-transparent text-sm font-bold text-emerald-700 outline-hidden cursor-pointer"
-              >
-                {['Any / No Restriction', 'Vegetarian', 'Non-Vegetarian', 'Vegan', 'Eggetarian', 'Jain'].map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+              {activeProfile ? (
+                 <span className="bg-transparent text-sm font-bold text-emerald-700 outline-hidden tracking-wide">{activeProfile.foodCategories}</span>
+              ) : (
+                <select
+                  value={diet}
+                  onChange={(e) => setDiet(e.target.value as DietaryPreference)}
+                  className="bg-transparent text-sm font-bold text-emerald-700 outline-hidden cursor-pointer"
+                >
+                  {['Any / No Restriction', 'Vegetarian', 'Non-Vegetarian', 'Vegan', 'Eggetarian', 'Jain'].map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              )}
             </div>
             
             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200 shadow-sm">
@@ -172,8 +252,8 @@ export default function App() {
         </header>
 
         {/* Navigation Tabs */}
-        {!recipe && (
-          <div className="flex justify-center mb-8">
+        {!recipe && !healthReport && (
+          <div className="print:hidden flex justify-center mb-8">
             <div className="inline-flex bg-white p-1 rounded-2xl border-2 border-slate-200 shadow-sm">
               <button
                 onClick={() => setActiveTab('pantry')}
@@ -191,6 +271,14 @@ export default function App() {
               >
                 <CalendarIcon className="w-5 h-5" /> Weekly Planner
               </button>
+              <button
+                onClick={() => setActiveTab('box')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 transition-all ${
+                  activeTab === 'box' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Book className="w-5 h-5" /> Recipe Box
+              </button>
             </div>
           </div>
         )}
@@ -202,22 +290,130 @@ export default function App() {
             <div>
               <h4 className="font-bold text-sm">A Little Kitchen Spill Occurred!</h4>
               <p className="text-xs text-rose-700 mt-1">{error}</p>
-              <button 
-                onClick={handleGenerateRecipe}
-                className="mt-2 text-xs font-bold underline text-[#FF6B6B] hover:text-rose-900 block"
-              >
-                🍳 Tap here to retry baking!
-              </button>
             </div>
           </div>
         )}
 
-        {/* Main Cooking Control Arena */}
-        {!recipe ? (
+        {/* Main Interface Arena */}
+        {healthReport ? (
+           <div id="health-report-pdf-container" className="space-y-6 bg-[#FFFDF0] p-4 rounded-3xl">
+              <div className="flex justify-between items-center bg-indigo-50 rounded-2xl p-4 border border-indigo-200">
+                <h2 className="text-xl font-black text-indigo-900 flex items-center gap-2">
+                  <Activity className="w-6 h-6 text-indigo-500" /> NutriPeds Clinical Report: {healthReport.childName}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => downloadAsPDF('health-report-pdf-container', 'health-report.pdf')} 
+                    className="print:hidden px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-xs sm:text-sm rounded-xl flex items-center gap-2 transition-colors border border-indigo-200"
+                  >
+                    <Download className="w-4 h-4" /> Download PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHealthReport(null)}
+                    className="print:hidden px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm border border-slate-350 shadow-xs flex items-center gap-2 transition-all"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Go back
+                  </button>
+                </div>
+              </div>
+
+              {healthReport.medicalDisclaimer && (
+                <div className="bg-yellow-50 p-4 border-l-4 border-yellow-400 rounded-r-xl">
+                  <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest mb-1">MANDATORY MEDICAL DISCLAIMER</p>
+                  <p className="text-xs text-yellow-900 font-medium">{healthReport.medicalDisclaimer}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-3xl border-2 border-slate-200 shadow-sm">
+                  <h3 className="text-slate-800 font-black text-lg mb-3">Health Summary</h3>
+                  <p className="text-slate-600 text-sm font-medium leading-relaxed">{healthReport.healthSummary}</p>
+                </div>
+                
+                <div className="bg-indigo-50 p-6 rounded-3xl border-2 border-indigo-200 shadow-sm relative overflow-hidden">
+                  <Activity className="w-24 h-24 text-indigo-200 absolute -right-4 -bottom-4 opacity-30" />
+                  <h3 className="text-indigo-900 font-black text-lg mb-3">Growth Chart Analysis</h3>
+                  <p className="text-indigo-800 text-sm font-medium leading-relaxed">{healthReport.growthChartAnalysis}</p>
+                </div>
+
+                <div className="bg-emerald-50 p-6 rounded-3xl border-2 border-emerald-200 shadow-sm md:col-span-2">
+                  <h3 className="text-emerald-900 font-black text-lg mb-4 flex items-center gap-2">
+                    <Utensils className="w-5 h-5 text-emerald-500" /> The "Proactive Plate" Strategy
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {healthReport.proactivePlateStrategy.map((strategy, i) => (
+                      <div key={i} className="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm">
+                        <div className="bg-emerald-100 text-emerald-800 w-8 h-8 flex items-center justify-center rounded-full font-black mb-3">{i + 1}</div>
+                        <p className="text-xs font-bold text-slate-700 leading-snug">{strategy}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {healthReport.allergySafetyShield && (
+                  <div className="bg-rose-50 p-6 rounded-3xl border-2 border-rose-300 shadow-sm md:col-span-2">
+                    <h3 className="text-rose-900 font-black text-lg mb-3 flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-rose-500" /> Allergy Safety Shield
+                    </h3>
+                    <p className="text-rose-800 text-sm font-bold bg-white p-4 rounded-xl border border-rose-200 shadow-xs">
+                      {healthReport.allergySafetyShield}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="bg-[#FFFBEB] p-6 rounded-3xl border-2 border-[#FFD93D] shadow-sm md:col-span-2">
+                  <h3 className="text-[#A35D36] font-black text-lg mb-3">Milestone & Energy Tracker</h3>
+                  <p className="text-[#854d0e] text-sm font-bold leading-relaxed">{healthReport.milestoneTracker}</p>
+                </div>
+              </div>
+           </div>
+        ) : !recipe ? (
           /* View A: Selector Views */
           <div className="space-y-6">
             {activeTab === 'weekly' ? (
-              <WeeklyPlanner language={language} diet={diet} />
+              <WeeklyPlanner language={language} diet={activeProfile ? activeProfile.foodCategories : diet} childProfile={activeProfile} />
+            ) : activeTab === 'box' ? (
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-emerald-100 min-h-[400px]">
+                 <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 mb-6 uppercase">
+                   <Book className="w-6 h-6 text-emerald-500" /> Saved NutriPeds Recipes
+                 </h2>
+                 {savedRecipes.length === 0 ? (
+                   <div className="text-center p-8 bg-emerald-50 rounded-2xl border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center">
+                     <Book className="w-12 h-12 text-emerald-300 mb-3" />
+                     <p className="text-emerald-800 font-bold">Your Recipe Box is empty!</p>
+                     <p className="text-emerald-600 text-sm mt-1">Generate recipes in the Pantry Chef and save your favorites here.</p>
+                     <button onClick={() => setActiveTab('pantry')} className="mt-4 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
+                       Go back to Pantry Chef
+                     </button>
+                   </div>
+                 ) : (
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                     {savedRecipes.map((r, i) => (
+                       <div key={i} className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer group flex flex-col justify-between h-full" onClick={() => { setRecipe(r); setActiveTab('pantry'); }}>
+                         <div>
+                           <p className="text-[10px] uppercase font-extrabold tracking-widest text-[#A35D36] mb-1">
+                             ✨ {r.dietIndicator}
+                           </p>
+                           <h3 className="text-lg font-black text-[#7D4427] leading-tight mb-3 line-clamp-2">{r.mealName}</h3>
+                           <div className="flex flex-wrap gap-1 mb-3">
+                              <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full">{r.nutrition.calories} kcal</span>
+                              <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">{r.nutrition.protein} prot</span>
+                           </div>
+                         </div>
+                         <div className="flex justify-end mt-4 pt-3 border-t border-slate-200">
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); setSavedRecipes(savedRecipes.filter((_, index) => index !== i)); }}
+                             className="text-xs text-rose-500 hover:text-rose-700 font-bold p-1 group-hover:block transition-colors"
+                           >
+                              Remove
+                           </button>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+              </div>
             ) : isLoading ? (
               /* Loading State Screen with rotating tips */
               <div className="bg-white rounded-3xl p-12 text-center border-4 border-[#FF6B6B] shadow-xl max-w-2xl mx-auto my-12 animate-pulse">
@@ -242,7 +438,7 @@ export default function App() {
                 onChangeSelected={setSelectedIngredients}
                 onGenerate={handleGenerateRecipe}
                 isLoading={isLoading}
-                diet={diet}
+                diet={activeProfile ? activeProfile.foodCategories : diet}
               />
             )}
           </div>
@@ -260,15 +456,43 @@ export default function App() {
                   {recipe.mealName}
                 </h2>
               </div>
-              <button
-                id="btn-return-fridge"
-                type="button"
-                onClick={() => setRecipe(null)}
-                className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm border border-slate-350 shadow-xs flex items-center gap-2 transition-all"
-              >
-                <ArrowLeft className="w-4 h-4" /> Go back to Pantry
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const alreadySaved = savedRecipes.some(r => r.mealName === recipe.mealName);
+                    if (alreadySaved) {
+                       setSavedRecipes(savedRecipes.filter(r => r.mealName !== recipe.mealName));
+                    } else {
+                       setSavedRecipes([...savedRecipes, recipe]);
+                    }
+                  }}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm border shadow-xs flex items-center gap-2 transition-all ${
+                    savedRecipes.some(r => r.mealName === recipe.mealName)
+                      ? 'bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200'
+                      : 'bg-white hover:bg-amber-50 text-emerald-700 border-emerald-200'
+                  }`}
+                >
+                  {savedRecipes.some(r => r.mealName === recipe.mealName) ? <Bookmark className="w-4 h-4 fill-current" /> : <BookmarkPlus className="w-4 h-4" />}
+                  {savedRecipes.some(r => r.mealName === recipe.mealName) ? 'Saved to Box' : 'Save Recipe'}
+                </button>
+                <button
+                  id="btn-return-fridge"
+                  type="button"
+                  onClick={() => setRecipe(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm border border-slate-350 shadow-xs flex items-center gap-2 transition-all"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Go back
+                </button>
+              </div>
             </div>
+
+            {recipe.medicalDisclaimer && (
+              <div className="bg-yellow-50 p-4 border-l-4 border-yellow-400 rounded-r-xl shadow-xs">
+                <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest mb-1">MANDATORY MEDICAL DISCLAIMER</p>
+                <p className="text-xs text-yellow-900 font-medium">{recipe.medicalDisclaimer}</p>
+              </div>
+            )}
 
             {/* Main Interactive 12-Column Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -277,16 +501,30 @@ export default function App() {
               <div className="lg:col-span-5 flex flex-col space-y-6">
                 <HarvardPlate recipe={recipe} />
 
-                {/* Companion Quick Fact Widget */}
-                <div className="bg-[#F1F8E9] p-5 rounded-3xl border-2 border-[#95CD41] shadow-sm relative overflow-hidden">
-                  <span className="absolute top-2 right-2 text-3xl opacity-15">🔬</span>
-                  <h5 className="text-xs font-black text-[#33691E] uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <Award className="w-4 h-4 text-[#33691E]" /> DIETITIAN COCHING FACT
-                  </h5>
-                  <p className="text-xs font-bold text-[#558B2F]">
-                    Chef Nutri-Kid's clinical design ensures plant oils provide essential brain fat (Omega-3/6) of the plate while grains keep the mitochondria engines charging!
-                  </p>
-                </div>
+                {/* Nutripeds specific facts */}
+                {recipe.nutritionalFocus && (
+                  <div className="bg-[#F1F8E9] p-5 rounded-3xl border-2 border-[#95CD41] shadow-sm relative overflow-hidden">
+                    <span className="absolute top-2 right-2 text-3xl opacity-15">🔬</span>
+                    <h5 className="text-xs font-black text-[#33691E] uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <Award className="w-4 h-4 text-[#33691E]" /> NUTRIPEDS COCHING FACT
+                    </h5>
+                    <p className="text-xs font-bold text-[#558B2F]">
+                      {recipe.nutritionalFocus}
+                    </p>
+                  </div>
+                )}
+                
+                {recipe.allergyCheck && (
+                  <div className="bg-rose-50 p-5 rounded-3xl border-2 border-rose-300 shadow-sm relative overflow-hidden">
+                    <span className="absolute top-2 right-2 text-3xl opacity-15">🛡️</span>
+                    <h5 className="text-xs font-black text-rose-700 uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-rose-500" /> ALLERGY SAFETY SHIELD
+                    </h5>
+                    <p className="text-xs font-bold text-rose-800">
+                      {recipe.allergyCheck}
+                    </p>
+                  </div>
+                )}
 
                 {/* Nutrition Breakdown */}
                 {recipe.nutrition && (

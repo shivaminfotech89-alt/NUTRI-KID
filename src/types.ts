@@ -6,6 +6,9 @@ export interface Recipe {
     strongProtein: string;
     fatsHydrates: string;
   };
+  nutritionalFocus?: string;
+  allergyCheck?: string;
+  medicalDisclaimer?: string;
   instructions: string[];
   juniorDuties: string[];
   powerMealFact: string;
@@ -24,6 +27,15 @@ export interface Recipe {
 
 export type DietaryPreference = 'Any / No Restriction' | 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Eggetarian' | 'Jain';
 
+export interface ChildProfile {
+  id: string;
+  name: string;
+  age: number; // in years
+  weight: number; // in kg
+  foodCategories: DietaryPreference;
+  allergies: string[];
+}
+
 export type AgeGroup = '1-3 years (Toddler)' | '4-5 years (Preschooler)' | '6-12 years (School Age)';
 
 export interface DailyMeal {
@@ -40,6 +52,16 @@ export interface WeeklyChart {
   tips: string[];
   days: DailyMeal[];
   shoppingList: string[];
+}
+
+export interface HealthReport {
+  childName: string;
+  medicalDisclaimer: string;
+  healthSummary: string;
+  growthChartAnalysis: string;
+  proactivePlateStrategy: string[];
+  allergySafetyShield: string;
+  milestoneTracker: string;
 }
 
 export interface FoodItem {

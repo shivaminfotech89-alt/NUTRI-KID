@@ -45,9 +45,14 @@ async function generateWithRetry(ai: GoogleGenAI, params: any, maxRetries = 3) {
 }
 
 // Chef Nutri-Kid Master Prompt System Instructions
-const ChefNutriKidPrompt = `You are "Chef Nutri-Kid," a world-class children's nutrition coach and clinical culinary assistant. Your mission is to help parents and kids transform everyday ingredients into exciting, delicious, and balanced plates based on the Harvard Kid’s Healthy Eating Plate.
+const ChefNutriKidPrompt = `You are NutriPeds AI (also known as Chef Nutri-Kid), an expert Pediatric Health and Nutritional AI Architect. Your role is to act as a highly knowledgeable, empathetic, and precision-driven nutritional assistant for parents. You specialize in tracking pediatric developmental metrics, evaluating weight-for-age data, and curating highly customized, allergy-safe dietary plans for children.
 
-Your tone is highly enthusiastic, warm, encouraging, and professional (a real "kitchen companion" for families), decorated with fun, kid-friendly emojis! You must respond in the user's requested language.
+Your tone is highly enthusiastic, warm, encouraging, empathetic, and professional (a real "kitchen companion" for families), decorated with fun, kid-friendly emojis! You must respond in the user's requested language.
+
+Operational Constraints and Safety Protocols:
+- Zero-Tolerance Allergy Protocol: You must strictly cross-reference every suggested dish or ingredient against the child’s logged allergy profile. You will never recommend a recipe containing a known allergen or a common cross-contaminant.
+- Mandatory Medical Disclaimer: All health reports and significant dietary interventions must be accompanied by a concise disclaimer stating: "NutriPeds AI provides nutritional guidance based on standard pediatric metrics, but is not a substitute for professional medical advice. Always consult your pediatrician before making significant dietary changes."
+- Standardized Data Accuracy: All proactive weight-for-age analysis must be benchmarked against recognized pediatric growth standards (e.g., WHO or CDC growth charts).
 
 Rules for your content generation:
 1. Map every group of food to its corresponding Harvard Kid's Plate quadrant:
@@ -57,14 +62,15 @@ Rules for your content generation:
    - Healthy Fats & Hydration (Engine smoothers & cold fresh water 💧🥑)
 2. Include at least 2-3 interactive "Junior Assistant Chef Tasks" where kids can safely help out in the kitchen (e.g., washing, tearing, cold mixing).
 3. Do not suggest deep frying or highly sugary additions. Focus on plant fats/oils (like olive oil, avocado oil, seed oils) over butter.
-4. If the ingredient input is empty or says "empty fridge", kindly propose a delicious meal made of common pantry staples (like oats, apples, yogurt, or whole wheat bread).
+4. If the ingredient input is empty or says "empty fridge", kindly propose a delicious meal made of common pantry staples.
 5. Calculate approximate nutritional information (Calories, Protein, Carbs, Fat, Fiber, Key Vitamins) for a standard kid's portion. Make it professional sounding.
+6. When a child profile with allergies is provided, STRICTLY EXCLUDE ALLERGENS.
 `;
 
 // API endpoint for Recipe generation
 apiRouter.post("/recipe", async (req, res) => {
   try {
-    const { ingredients, language = "English", diet = "Any / No Restriction" } = req.body;
+    const { ingredients, language = "English", diet = "Any / No Restriction", childProfile } = req.body;
     if (!ingredients || typeof ingredients !== "string") {
       res.status(400).json({ error: "Ingredients must be provided as a string." });
       return;
@@ -72,9 +78,16 @@ apiRouter.post("/recipe", async (req, res) => {
 
     const ai = getGeminiClient();
 
+    let profileContext = "";
+    if (childProfile) {
+      profileContext = `The active child profile is for ${childProfile.name}, Age: ${childProfile.age} years, Weight: ${childProfile.weight}kg. Their dietary category is: ${childProfile.foodCategories}. Known Allergies: ${childProfile.allergies && childProfile.allergies.length > 0 ? childProfile.allergies.join(", ") : "None documented"}.
+      You MUST calculate weight-for-age percentile based on standard WHO/CDC charts, determine the current nutritional trajectory (e.g. requires calories for gain, balanced macros for maintenance), and map this to specific macronutrient goals.
+      STRICTLY EXCLUDE LOGGED ALLERGENS.`;
+    }
+
     const response = await generateWithRetry(ai, {
       model: "gemini-3.1-flash-lite",
-      contents: `Great chef! Let's cook using these ingredients: "${ingredients}". The dietary preference is "${diet}". Transform them into a healthy, gorgeous, kid-approved masterpiece matching this diet. Please generate the response in ${language}. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
+      contents: `Great chef! Let's cook using these ingredients: "${ingredients}". The dietary preference is "${diet}". ${profileContext} Transform them into a healthy, gorgeous, kid-approved masterpiece matching this diet. Please generate the response in ${language}. Ensure the response format fits the requested Harvard Kid's Plate structure perfectly.`,
       config: {
         systemInstruction: ChefNutriKidPrompt,
         temperature: 0.8,
@@ -85,6 +98,18 @@ apiRouter.post("/recipe", async (req, res) => {
             mealName: {
               type: Type.STRING,
               description: "Fabulous kid-themed title with emojis (e.g. 'Captain Broccoli's Shield Sandwiches 🥦🦸‍♂️')."
+            },
+            nutritionalFocus: {
+               type: Type.STRING,
+               description: "Why it fits the current weight-for-age analysis and dietary trajectory."
+            },
+            allergyCheck: {
+               type: Type.STRING,
+               description: "Explicit confirmation of what was excluded, e.g., '100% Peanut & Dairy Free'."
+            },
+            medicalDisclaimer: {
+               type: Type.STRING,
+               description: "Mandatory medical disclaimer about professional advice."
             },
             plateBreakdown: {
               type: Type.OBJECT,
@@ -149,6 +174,7 @@ apiRouter.post("/recipe", async (req, res) => {
           },
           required: [
             "mealName",
+            "medicalDisclaimer",
             "plateBreakdown",
             "instructions",
             "juniorDuties",
@@ -239,22 +265,85 @@ apiRouter.post("/scan-ingredients", async (req, res) => {
   }
 });
 
-// API endpoint for Weekly Meal Plan generation
-apiRouter.post("/weekly-plan", async (req, res) => {
+// API endpoint for Health Report generation
+apiRouter.post("/health-report", async (req, res) => {
   try {
-    const { ageGroup, language = "English", diet = "Any / No Restriction" } = req.body;
-    if (!ageGroup) {
-      res.status(400).json({ error: "Age group must be provided." });
+    const { childProfile, language = "English" } = req.body;
+    if (!childProfile) {
+      res.status(400).json({ error: "Child profile must be provided." });
       return;
     }
 
     const ai = getGeminiClient();
 
+    const prompt = `Generate a Creative Child Health Report for Phase 4 of the NutriPeds AI workflow.
+    Child Data: Name: ${childProfile.name}, Age: ${childProfile.age} years, Weight: ${childProfile.weight}kg, Diet: ${childProfile.foodCategories}, Allergies: ${childProfile.allergies && childProfile.allergies.length > 0 ? childProfile.allergies.join(", ") : "None"}.
+    Language: ${language}.
+    Please analyze their weight-for-age trajectory based on standard benchmarks and output a comprehensive, creatively formatted report adhering strictly to the constraints.`;
+
+    const response = await generateWithRetry(ai, {
+      model: "gemini-3.1-flash-lite",
+      contents: prompt,
+      config: {
+        systemInstruction: ChefNutriKidPrompt,
+        temperature: 0.7,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            childName: { type: Type.STRING },
+            medicalDisclaimer: { type: Type.STRING, description: "Mandatory medical disclaimer about professional advice." },
+            healthSummary: { type: Type.STRING, description: "A brief, encouraging overview of the child's current health status." },
+            growthChartAnalysis: { type: Type.STRING, description: "A simple visual representation or clear text summary of where the child stands developmentally according to international standards." },
+            proactivePlateStrategy: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Top 3 nutritional focus areas for the upcoming period based on the analysis." },
+            allergySafetyShield: { type: Type.STRING, description: "A highlighted box reaffirming the specific ingredients being strictly avoided for safety." },
+            milestoneTracker: { type: Type.STRING, description: "A creative summary of the child's expected energy levels and developmental milestones supported by the current plan." }
+          },
+          required: ["childName", "medicalDisclaimer", "healthSummary", "growthChartAnalysis", "proactivePlateStrategy", "allergySafetyShield", "milestoneTracker"]
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("No response string received from the Gemini engine.");
+
+    res.json(JSON.parse(text));
+  } catch (error: any) {
+    console.error("Gemini health report engine error:", error);
+    let errorMessage = error.message || "Something went wrong generating the health report!";
+    if (errorMessage.includes("429") || errorMessage.includes("quota")) {
+      errorMessage = "API Rate Limit Exceeded: The AI Chef has run out of daily free quota. Please try again tomorrow or use an upgraded API key.";
+    } else if (errorMessage.includes("503") || errorMessage.includes("high demand")) {
+      errorMessage = "The AI Chef's kitchen is currently experiencing high demand! Please try again in a moment.";
+    }
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
+// API endpoint for Weekly Meal Plan generation
+apiRouter.post("/weekly-plan", async (req, res) => {
+  try {
+    const { ageGroup, language = "English", diet = "Any / No Restriction", childProfile } = req.body;
+    if (!ageGroup && !childProfile) {
+      res.status(400).json({ error: "Age group or child profile must be provided." });
+      return;
+    }
+
+    const ai = getGeminiClient();
+
+    let profileContext = "";
+    if (childProfile) {
+      profileContext = `The plan is specifically for ${childProfile.name}, Age: ${childProfile.age} years, Weight: ${childProfile.weight}kg. Their dietary category is: ${childProfile.foodCategories}. Known Allergies: ${childProfile.allergies && childProfile.allergies.length > 0 ? childProfile.allergies.join(", ") : "None documented"}.
+      STRICTLY EXCLUDE LOGGED ALLERGENS inside ALL days and snacks.`;
+    }
+
     const prompt = `You are a professional pediatric dietitian and "Chef Nutri-Kid".
-Please create a professional weekly healthy meal chart (7 days) for a child in the age group: ${ageGroup}.
-The dietary preference is: ${diet}. Ensure all meals strictly adhere to this dietary restriction.
+Please create a professional weekly healthy meal chart (7 days) for a child.
+${childProfile ? profileContext : `Age group: ${ageGroup}.`}
+The dietary preference is: ${childProfile ? childProfile.foodCategories : diet}. Ensure all meals strictly adhere to this dietary restriction.
 Adhere to the Harvard Kid's Healthy Eating Plate guidelines.
 Please generate the response in ${language}.
+${childProfile ? `IMPORTANT: Set the "title" field to exactly: "${childProfile.name.toUpperCase()} MEAL REPORT"` : ''}
 Return a structured weekly meal plan and a concise grocery shopping list. Ensure professional formatting and accurate language translation.`;
 
     const response = await generateWithRetry(ai, {
