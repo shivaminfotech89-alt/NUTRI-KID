@@ -113,5 +113,15 @@ export const COMMON_INGREDIENTS_DB = [
   "Greek Yogurt", "Green Beans", "Honey", "Kale", "Lemon", "Lentils", "Mango", "Milk", "Mushrooms", 
   "Oats", "Olive Oil", "Onion", "Orange", "Peanut Butter", "Peas", "Pork", "Potatoes", "Quinoa", 
   "Salmon", "Spinach", "Strawberries", "Sweet Potato", "Tofu", "Tomatoes", "Tuna", "Turkey", 
-  "Walnuts", "Watermelon", "Wheat Pasta", "Whole Wheat Bread", "Zucchini"
+  "Walnuts", "Watermelon", "Wheat Pasta", "Whole Wheat Bread", "Zucchini",
+  "Flour", "Wheat Flour", "All Purpose Flour", "Almond Flour", "Coconut Flour", "Rice Flour",
+  "Butter", "Ghee", "Paneer", "Kidney Beans", "Pinto Beans", "Soy Beans", "Mustard", "Ketchup",
+  "Mayonnaise", "Soy Sauce", "Vinegar", "Salt", "Black Pepper", "Cumin", "Coriander", "Turmeric",
+  "Paprika", "Cinnamon", "Nutmeg", "Cardamom", "Cloves", "Basil", "Oregano", "Thyme", "Rosemary",
+  "Parsley", "Cilantro", "Mint", "Pineapple", "Papaya", "Grapes", "Kiwi", "Peach", "Plum", "Pear",
+  "Cherry", "Pomegranate", "Coconut", "Almonds", "Cashews", "Pecans", "Pistachios", "Macadamia",
+  "Pumpkin Seeds", "Sunflower Seeds", "Sesame Seeds", "Flax Seeds", "Peanuts", "Kidney Beans",
+  "Black Eyed Peas", "Green Peas", "Snow Peas", "Bok Choy", "Brussels Sprouts", "Radish", "Turnip",
+  "Beetroot", "Squash", "Pumpkin", "Artichoke", "Leek", "Shallot", "Scallion", "Chili Pepper",
+  "Jalapeno", "Habanero", "Lime", "Grapefruit", "Tangerine", "Cantaloupe", "Honeydew"
 ];

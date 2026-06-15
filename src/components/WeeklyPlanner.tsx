@@ -96,11 +96,15 @@ export default function WeeklyPlanner({ language, diet, childProfile }: WeeklyPl
       </div>
 
       {weeklyChart && (
-        <div id="weekly-plan-pdf-container" className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#FFFDF0] p-4 rounded-3xl">
+        <div id="weekly-plan-pdf-container" className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white p-4 sm:p-6 rounded-3xl">
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100">
                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                 <h3 className="text-xl font-black text-slate-800 uppercase">{weeklyChart.title}</h3>
+                 <h3 className="text-xl font-black text-slate-800 uppercase">
+                   {childProfile 
+                     ? `${childProfile.name} (${childProfile.age} Year Old) Meal Report` 
+                     : weeklyChart.title}
+                 </h3>
                  <button 
                    onClick={() => downloadAsPDF('weekly-plan-pdf-container', 'weekly-meal-plan.pdf')} 
                    className="print:hidden text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors"

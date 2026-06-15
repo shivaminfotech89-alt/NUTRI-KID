@@ -14,6 +14,7 @@ export default function App() {
   const [diet, setDiet] = useState<DietaryPreference>('Any / No Restriction');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipeOptions, setRecipeOptions] = useState<Recipe[] | null>(null);
   const [healthReport, setHealthReport] = useState<HealthReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
@@ -103,7 +104,11 @@ export default function App() {
         throw new Error(data.error);
       }
 
-      setRecipe(data);
+      if (data.recipes && Array.isArray(data.recipes)) {
+        setRecipeOptions(data.recipes);
+      } else {
+        throw new Error("Invalid response format received from the server.");
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Something went wrong in Chef Nutri-Kid\'s kitchen. Please make sure your server is online.');
@@ -296,7 +301,7 @@ export default function App() {
 
         {/* Main Interface Arena */}
         {healthReport ? (
-           <div id="health-report-pdf-container" className="space-y-6 bg-[#FFFDF0] p-4 rounded-3xl">
+           <div id="health-report-pdf-container" className="space-y-6 bg-white p-4 sm:p-6 rounded-3xl">
               <div className="flex justify-between items-center bg-indigo-50 rounded-2xl p-4 border border-indigo-200">
                 <h2 className="text-xl font-black text-indigo-900 flex items-center gap-2">
                   <Activity className="w-6 h-6 text-indigo-500" /> NutriPeds Clinical Report: {healthReport.childName}
@@ -430,6 +435,46 @@ export default function App() {
                 <p className="text-slate-400 text-xs mt-6">
                   Applying clinical nutrient ratios using Gemini AI for kid goodness...
                 </p>
+              </div>
+            ) : recipeOptions ? (
+              /* Display Recipe Options */
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-indigo-100 min-h-[400px]">
+                 <div className="flex justify-between items-center mb-6">
+                   <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 uppercase">
+                     <Sparkles className="w-6 h-6 text-amber-500" /> Chef Nutri-Kid's Options
+                   </h2>
+                   <button
+                     onClick={() => setRecipeOptions(null)}
+                     className="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs sm:text-sm border border-slate-200 transition-colors"
+                   >
+                     Back to Pantry
+                   </button>
+                 </div>
+                 <p className="text-slate-600 mb-6 font-medium">Select your favorite recipe option below to see full details!</p>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {recipeOptions.map((opt, i) => (
+                     <div key={i} className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group flex flex-col justify-between" onClick={() => { setRecipe(opt); setRecipeOptions(null); }}>
+                       <div>
+                         <p className="text-xs uppercase font-extrabold tracking-widest text-[#A35D36] mb-2">
+                           ✨ Option {i + 1} | {opt.dietIndicator}
+                         </p>
+                         <h3 className="text-xl font-black text-indigo-900 leading-tight mb-4">{opt.mealName}</h3>
+                         {opt.nutritionalFocus && (
+                           <p className="text-sm font-medium text-slate-600 mb-4 bg-indigo-50 p-3 rounded-xl line-clamp-3">
+                             {opt.nutritionalFocus}
+                           </p>
+                         )}
+                         <div className="flex flex-wrap gap-2 mb-4">
+                            <span className="text-xs font-bold bg-sky-100 text-sky-800 px-3 py-1 rounded-full">{opt.nutrition.calories} kcal</span>
+                            <span className="text-xs font-bold bg-rose-100 text-rose-800 px-3 py-1 rounded-full">{opt.nutrition.protein} prot</span>
+                         </div>
+                       </div>
+                       <button className="mt-4 w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
+                         View Full Recipe
+                       </button>
+                     </div>
+                   ))}
+                 </div>
               </div>
             ) : (
               /* Ready to pick ingredients */

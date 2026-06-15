@@ -40,11 +40,10 @@ export default function ProfileManager({ profiles, setProfiles, activeProfileId,
 
   const removeProfile = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm("Are you sure you want to remove this profile?")) {
-      setProfiles(profiles.filter(p => p.id !== id));
-      if (activeProfileId === id) {
-        setActiveProfileId(null);
-      }
+    // In iframe environments window.confirm can be blocked, so we remove it directly
+    setProfiles(profiles.filter(p => p.id !== id));
+    if (activeProfileId === id) {
+      setActiveProfileId(null);
     }
   };
 

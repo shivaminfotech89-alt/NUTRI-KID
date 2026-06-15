@@ -91,7 +91,19 @@ export default function IngredientSelector({
 
   const filteredSuggestions = COMMON_INGREDIENTS_DB.filter(
     item => item.toLowerCase().includes(customInput.toLowerCase()) && !selectedItems.includes(item) && !excludedList.includes(item)
-  ).slice(0, 5);
+  )
+  .sort((a, b) => {
+    // Exact match or starts with gets higher priority
+    const aLower = a.toLowerCase();
+    const bLower = b.toLowerCase();
+    const inputLower = customInput.toLowerCase();
+    const aStarts = aLower.startsWith(inputLower);
+    const bStarts = bLower.startsWith(inputLower);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return a.localeCompare(b);
+  })
+  .slice(0, 10);
 
   const handleToggleItem = (name: string) => {
     if (selectedItems.includes(name)) {
@@ -305,7 +317,7 @@ export default function IngredientSelector({
           </button>
         </form>
         {showSuggestions && customInput && filteredSuggestions.length > 0 && (
-          <div className="absolute z-10 w-full mt-2 bg-white border-2 border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+          <div className="absolute z-10 w-full mt-2 bg-white border-2 border-slate-200 rounded-2xl shadow-xl overflow-y-auto max-h-60">
             {filteredSuggestions.map((suggestion) => (
               <button
                 key={suggestion}

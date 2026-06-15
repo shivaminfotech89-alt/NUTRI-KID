@@ -95,95 +95,105 @@ apiRouter.post("/recipe", async (req, res) => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            mealName: {
-              type: Type.STRING,
-              description: "Fabulous kid-themed title with emojis (e.g. 'Captain Broccoli's Shield Sandwiches 🥦🦸‍♂️')."
-            },
-            nutritionalFocus: {
-               type: Type.STRING,
-               description: "Why it fits the current weight-for-age analysis and dietary trajectory."
-            },
-            allergyCheck: {
-               type: Type.STRING,
-               description: "Explicit confirmation of what was excluded, e.g., '100% Peanut & Dairy Free'."
-            },
-            medicalDisclaimer: {
-               type: Type.STRING,
-               description: "Mandatory medical disclaimer about professional advice."
-            },
-            plateBreakdown: {
-              type: Type.OBJECT,
-              properties: {
-                fruitsVeggies: {
-                  type: Type.STRING,
-                  description: "Explain how fruits/veg map to 50% of the plate and what power they give (e.g. eye power or custom immunity shield, decorated with emojis)."
-                },
-                wholeGrains: {
-                  type: Type.STRING,
-                  description: "Explain the whole grain source (25% energy module) and why it keeps our engines running forever, with emojis."
-                },
-                strongProtein: {
-                  type: Type.STRING,
-                  description: "Explain the healthy protein (25% muscle builder) and how it creates strong arms/legs, with emojis."
-                },
-                fatsHydrates: {
-                  type: Type.STRING,
-                  description: "Healthy fats used (e.g., olive oil) and cheerful hydration suggestions, with emojis."
-                }
-              },
-              required: ["fruitsVeggies", "wholeGrains", "strongProtein", "fatsHydrates"]
-            },
-            instructions: {
+            recipes: {
               type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "Detailed, easy step-by-step cooking steps. Maximum 6 clear steps, easy for parents."
-            },
-            juniorDuties: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "2-3 fun interactive junior tasks (e.g. 'Tear the spinach leaves into tiny bites', 'Mix the sauce with a spoon!')."
-            },
-            powerMealFact: {
-              type: Type.STRING,
-              description: "A super encouraging scientific fact told in very cute kid terms (e.g. 'Beta-carotene in carrots is like Night Vision Goggles!')."
-            },
-            moveChallenge: {
-              type: Type.STRING,
-              description: "A fun 15-second physical challenge related to the food theme (e.g. 'Do 10 Star Jumps to fire up your digestive engine before the first bite!')."
-            },
-            tutorialQuery: {
-              type: Type.STRING,
-              description: "Exact search term to find a tutorial video (e.g., 'kids healthy brown rice bowl recipe tutorial')."
-            },
-            dietIndicator: {
-              type: Type.STRING,
-              description: "A short indicator of the recipe's diet type with an emoji (e.g., '🟢 Pure Veg', '🔴 Non-Veg', '🥚 Eggetarian', '🌱 Vegan', '🧄 Jain')."
-            },
-            nutrition: {
-              type: Type.OBJECT,
-              properties: {
-                calories: { type: Type.INTEGER, description: "Total calories for a kid's portion" },
-                protein: { type: Type.STRING, description: "Protein amount (e.g., '15g')" },
-                carbs: { type: Type.STRING, description: "Carbohydrates amount (e.g., '30g')" },
-                fat: { type: Type.STRING, description: "Healthy fats amount (e.g., '10g')" },
-                fiber: { type: Type.STRING, description: "Fiber amount (e.g., '8g')" },
-                keyVitamins: { type: Type.STRING, description: "Key vitamins provided (e.g., 'Vitamin A, C, Iron')" }
-              },
-              required: ["calories", "protein", "carbs", "fat", "fiber", "keyVitamins"]
+              description: "Provide exactly 2 highly creative, distinctly different recipe options using the given ingredients.",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  mealName: {
+                    type: Type.STRING,
+                    description: "Fabulous kid-themed title with emojis (e.g. 'Captain Broccoli's Shield Sandwiches 🥦🦸‍♂️')."
+                  },
+                  nutritionalFocus: {
+                     type: Type.STRING,
+                     description: "Why it fits the current weight-for-age analysis and dietary trajectory."
+                  },
+                  allergyCheck: {
+                     type: Type.STRING,
+                     description: "Explicit confirmation of what was excluded, e.g., '100% Peanut & Dairy Free'."
+                  },
+                  medicalDisclaimer: {
+                     type: Type.STRING,
+                     description: "Mandatory medical disclaimer about professional advice."
+                  },
+                  plateBreakdown: {
+                    type: Type.OBJECT,
+                    properties: {
+                      fruitsVeggies: {
+                        type: Type.STRING,
+                        description: "Explain how fruits/veg map to 50% of the plate and what power they give (e.g. eye power or custom immunity shield, decorated with emojis)."
+                      },
+                      wholeGrains: {
+                        type: Type.STRING,
+                        description: "Explain the whole grain source (25% energy module) and why it keeps our engines running forever, with emojis."
+                      },
+                      strongProtein: {
+                        type: Type.STRING,
+                        description: "Explain the healthy protein (25% muscle builder) and how it creates strong arms/legs, with emojis."
+                      },
+                      fatsHydrates: {
+                        type: Type.STRING,
+                        description: "Healthy fats used (e.g., olive oil) and cheerful hydration suggestions, with emojis."
+                      }
+                    },
+                    required: ["fruitsVeggies", "wholeGrains", "strongProtein", "fatsHydrates"]
+                  },
+                  instructions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Detailed, easy step-by-step cooking steps. Maximum 6 clear steps, easy for parents."
+                  },
+                  juniorDuties: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "2-3 fun interactive junior tasks (e.g. 'Tear the spinach leaves into tiny bites', 'Mix the sauce with a spoon!')."
+                  },
+                  powerMealFact: {
+                    type: Type.STRING,
+                    description: "A super encouraging scientific fact told in very cute kid terms (e.g. 'Beta-carotene in carrots is like Night Vision Goggles!')."
+                  },
+                  moveChallenge: {
+                    type: Type.STRING,
+                    description: "A fun 15-second physical challenge related to the food theme (e.g. 'Do 10 Star Jumps to fire up your digestive engine before the first bite!')."
+                  },
+                  tutorialQuery: {
+                    type: Type.STRING,
+                    description: "Exact search term to find a tutorial video (e.g., 'kids healthy brown rice bowl recipe tutorial')."
+                  },
+                  dietIndicator: {
+                    type: Type.STRING,
+                    description: "A short indicator of the recipe's diet type with an emoji (e.g., '🟢 Pure Veg', '🔴 Non-Veg', '🥚 Eggetarian', '🌱 Vegan', '🧄 Jain')."
+                  },
+                  nutrition: {
+                    type: Type.OBJECT,
+                    properties: {
+                      calories: { type: Type.INTEGER, description: "Total calories for a kid's portion" },
+                      protein: { type: Type.STRING, description: "Protein amount (e.g., '15g')" },
+                      carbs: { type: Type.STRING, description: "Carbohydrates amount (e.g., '30g')" },
+                      fat: { type: Type.STRING, description: "Healthy fats amount (e.g., '10g')" },
+                      fiber: { type: Type.STRING, description: "Fiber amount (e.g., '8g')" },
+                      keyVitamins: { type: Type.STRING, description: "Key vitamins provided (e.g., 'Vitamin A, C, Iron')" }
+                    },
+                    required: ["calories", "protein", "carbs", "fat", "fiber", "keyVitamins"]
+                  }
+                },
+                required: [
+                  "mealName",
+                  "medicalDisclaimer",
+                  "plateBreakdown",
+                  "instructions",
+                  "juniorDuties",
+                  "powerMealFact",
+                  "moveChallenge",
+                  "tutorialQuery",
+                  "dietIndicator",
+                  "nutrition"
+                ]
+              }
             }
           },
-          required: [
-            "mealName",
-            "medicalDisclaimer",
-            "plateBreakdown",
-            "instructions",
-            "juniorDuties",
-            "powerMealFact",
-            "moveChallenge",
-            "tutorialQuery",
-            "dietIndicator",
-            "nutrition"
-          ]
+          required: ["recipes"]
         }
       }
     });
